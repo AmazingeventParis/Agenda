@@ -42,8 +42,8 @@
     .month-nav .btn { background: white; color: #333; border: 1px solid #ddd; }
     .month-nav .btn:hover { background: #f3f4f6; }
 
-    .calendar-grid { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: visible; }
-    .calendar-table { width: 100%; border-collapse: collapse; }
+    .calendar-grid { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .calendar-table { border-collapse: collapse; }
     .calendar-table th { padding: 10px 4px; background: #f8fafc; font-size: 12px; font-weight: 600; color: #64748b; text-align: center; border-bottom: 2px solid #e2e8f0; }
     .calendar-table td { padding: 2px; text-align: center; border: 1px solid #f1f5f9; height: 36px; min-width: 36px; position: relative; border-collapse: collapse; }
     .calendar-table td.weekend { background: #fee2e2; }
@@ -103,7 +103,6 @@
     .stats-table td { padding: 10px 12px; border-top: 1px solid #f1f5f9; font-size: 13px; }
     .stats-table tr:hover td { background: #f8fafc; }
 
-    .calendar-scroll { overflow-x: auto; }
 
     /* Tooltip */
     .tooltip { position: absolute; background: #1e293b; color: white; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; z-index: 50; pointer-events: none; transform: translateX(-50%); bottom: calc(100% + 6px); left: 50%; }
@@ -141,13 +140,10 @@
       .legend-item { font-size: 11px; }
       .legend-color { width: 12px; height: 12px; }
 
-      #calendar-wrapper { overflow-x: scroll !important; -webkit-overflow-scrolling: touch; }
-      .calendar-table { min-width: 1000px; }
+      .calendar-table .employee-name { position: static; }
       .calendar-table th { padding: 4px 1px; font-size: 9px; }
-      .calendar-table td { height: 26px; min-width: 26px; padding: 1px; }
-      .calendar-table .employee-name { padding: 4px 6px; font-size: 9px; min-width: 80px; position: static; white-space: nowrap; }
+      .calendar-table td { height: 26px; padding: 1px; }
       .absence-cell { min-height: 22px; font-size: 7px; border-radius: 2px; }
-      .emp-name-badge { width: 5px; height: 5px; margin-right: 2px; }
 
       .employee-card { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
       .employee-actions { width: 100%; justify-content: flex-end; }
