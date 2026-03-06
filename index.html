@@ -667,7 +667,7 @@ function importJSON(event) {
       } else {
         alert('Fichier invalide.');
       }
-    } catch { alert('Erreur de lecture du fichier.'); }
+    } catch(err) { console.error(err); alert('Erreur de lecture du fichier: ' + err.message); }
   };
   reader.readAsText(file);
   event.target.value = '';
