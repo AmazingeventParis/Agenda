@@ -84,6 +84,10 @@
     .employee-card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
     .employee-info h4 { font-size: 15px; margin-bottom: 2px; }
     .employee-info span { font-size: 13px; color: #6b7280; }
+    .badge-company { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: white; margin-left: 6px; vertical-align: middle; }
+    .badge-shootnbox { background: #7c3aed; }
+    .badge-smakk { background: #0891b2; }
+    .emp-name-badge { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
     .employee-actions { display: flex; gap: 6px; }
 
     /* Stats */
@@ -156,10 +160,18 @@
           <select id="year-select" onchange="changeYear(this.value)"></select>
         </div>
         <button class="btn btn-primary" onclick="goToToday()">Aujourd'hui</button>
+        <select id="filter-company" onchange="renderCalendar()" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">
+          <option value="all">Toutes les societes</option>
+          <option value="shootnbox">Shootnbox</option>
+          <option value="smakk">Smakk</option>
+        </select>
       </div>
     </div>
 
     <div class="legend">
+      <div class="legend-item"><div class="legend-color badge-shootnbox"></div>Shootnbox</div>
+      <div class="legend-item"><div class="legend-color badge-smakk"></div>Smakk</div>
+      <div style="width:1px;background:#e2e8f0;margin:0 4px;"></div>
       <div class="legend-item"><div class="legend-color abs-maladie"></div>Maladie</div>
       <div class="legend-item"><div class="legend-color abs-cp"></div>Conge paye</div>
       <div class="legend-item"><div class="legend-color abs-rtt"></div>RTT</div>
@@ -212,6 +224,11 @@
     <input type="text" id="emp-firstname" placeholder="Prenom">
     <label>Nom</label>
     <input type="text" id="emp-lastname" placeholder="Nom">
+    <label>Societe</label>
+    <select id="emp-company">
+      <option value="shootnbox">Shootnbox</option>
+      <option value="smakk">Smakk</option>
+    </select>
     <label>Poste</label>
     <input type="text" id="emp-position" placeholder="Poste (optionnel)">
     <input type="hidden" id="emp-id">
@@ -331,7 +348,10 @@ function switchTab(tab) {
 
 // --- CALENDAR ---
 function renderCalendar() {
-  const employees = cachedEmployees;
+  const filter = document.getElementById('filter-company').value;
+  const employees = cachedEmployees
+    .filter(e => filter === 'all' || e.company === filter)
+    .sort((a, b) => (a.company || '').localeCompare(b.company || '') || a.firstname.localeCompare(b.firstname));
   const absences = cachedAbsences;
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const today = new Date();
@@ -358,7 +378,8 @@ function renderCalendar() {
   }
 
   employees.forEach(emp => {
-    html += `<tr><td class="employee-name">${emp.firstname} ${emp.lastname.charAt(0)}.</td>`;
+    const compColor = emp.company === 'smakk' ? '#0891b2' : '#7c3aed';
+    html += `<tr><td class="employee-name"><span class="emp-name-badge" style="background:${compColor}"></span>${emp.firstname} ${emp.lastname.charAt(0)}.</td>`;
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const date = new Date(currentYear, currentMonth, d);
@@ -415,7 +436,7 @@ function renderEmployees() {
   list.innerHTML = employees.map(emp => `
     <div class="employee-card">
       <div class="employee-info">
-        <h4>${emp.firstname} ${emp.lastname}</h4>
+        <h4>${emp.firstname} ${emp.lastname} <span class="badge-company badge-${emp.company || 'shootnbox'}">${(emp.company || 'shootnbox').toUpperCase()}</span></h4>
         <span>${emp.position || 'Poste non defini'}</span>
       </div>
       <div class="employee-actions">
@@ -434,12 +455,14 @@ function openEmployeeModal(id) {
     document.getElementById('modal-employee-title').textContent = 'Modifier le salarie';
     document.getElementById('emp-firstname').value = emp.firstname;
     document.getElementById('emp-lastname').value = emp.lastname;
+    document.getElementById('emp-company').value = emp.company || 'shootnbox';
     document.getElementById('emp-position').value = emp.position || '';
     document.getElementById('emp-id').value = id;
   } else {
     document.getElementById('modal-employee-title').textContent = 'Ajouter un salarie';
     document.getElementById('emp-firstname').value = '';
     document.getElementById('emp-lastname').value = '';
+    document.getElementById('emp-company').value = 'shootnbox';
     document.getElementById('emp-position').value = '';
     document.getElementById('emp-id').value = '';
   }
@@ -449,6 +472,7 @@ function openEmployeeModal(id) {
 async function saveEmployee() {
   const firstname = document.getElementById('emp-firstname').value.trim();
   const lastname = document.getElementById('emp-lastname').value.trim();
+  const company = document.getElementById('emp-company').value;
   const position = document.getElementById('emp-position').value.trim();
   const id = document.getElementById('emp-id').value;
 
@@ -457,13 +481,13 @@ async function saveEmployee() {
   if (id) {
     await fetch(`${SUPABASE_URL}/rest/v1/agenda_employees?id=eq.${id}`, {
       method: 'PATCH', headers: HEADERS,
-      body: JSON.stringify({ firstname, lastname, position })
+      body: JSON.stringify({ firstname, lastname, company, position })
     });
   } else {
     const newId = 'emp_' + Date.now();
     await fetch(`${SUPABASE_URL}/rest/v1/agenda_employees`, {
       method: 'POST', headers: HEADERS,
-      body: JSON.stringify({ id: newId, firstname, lastname, position })
+      body: JSON.stringify({ id: newId, firstname, lastname, company, position })
     });
   }
 
