@@ -86,8 +86,8 @@
     .employee-info h4 { font-size: 15px; margin-bottom: 2px; }
     .employee-info span { font-size: 13px; color: #6b7280; }
     .badge-company { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; color: white; margin-left: 6px; vertical-align: middle; }
-    .badge-shootnbox { background: #7c3aed; }
-    .badge-smakk { background: #0891b2; }
+    .badge-shootnbox { background: #dc2626; }
+    .badge-smakk { background: #2563eb; }
     .emp-name-badge { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
     .employee-actions { display: flex; gap: 6px; }
 
@@ -191,8 +191,8 @@
     </div>
 
     <div class="legend">
-      <div class="legend-item"><div class="legend-color badge-shootnbox"></div>Shootnbox</div>
-      <div class="legend-item"><div class="legend-color badge-smakk"></div>Smakk</div>
+      <div class="legend-item"><div class="legend-color" style="background:#dc2626"></div>Shootnbox</div>
+      <div class="legend-item"><div class="legend-color" style="background:#2563eb"></div>Smakk</div>
       <div style="width:1px;background:#e2e8f0;margin:0 4px;"></div>
       <div class="legend-item"><div class="legend-color abs-maladie"></div>Maladie</div>
       <div class="legend-item"><div class="legend-color abs-cp"></div>Conge paye</div>
@@ -450,11 +450,11 @@ function renderCalendar() {
     const comp = emp.company || 'shootnbox';
     if (comp !== lastCompany) {
       const compLabel = comp === 'smakk' ? 'SMAKK' : 'SHOOTNBOX';
-      const compColor = comp === 'smakk' ? '#0891b2' : '#7c3aed';
+      const compColor = comp === 'smakk' ? '#2563eb' : '#dc2626';
       html += `<tr><td colspan="${daysInMonth + 1}" style="padding:8px 12px;background:${compColor};color:white;font-weight:700;font-size:13px;letter-spacing:1px;">${compLabel}</td></tr>`;
       lastCompany = comp;
     }
-    const compColor = comp === 'smakk' ? '#0891b2' : '#7c3aed';
+    const compColor = comp === 'smakk' ? '#2563eb' : '#dc2626';
     html += `<tr><td class="employee-name"><span class="emp-name-badge" style="background:${compColor}"></span>${emp.firstname} ${emp.lastname}</td>`;
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
