@@ -455,7 +455,7 @@ function renderCalendar() {
       lastCompany = comp;
     }
     const compColor = comp === 'smakk' ? '#0891b2' : '#7c3aed';
-    html += `<tr><td class="employee-name"><span class="emp-name-badge" style="background:${compColor}"></span>${emp.firstname} ${emp.lastname.charAt(0)}.</td>`;
+    html += `<tr><td class="employee-name"><span class="emp-name-badge" style="background:${compColor}"></span>${emp.firstname} ${emp.lastname}</td>`;
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const date = new Date(currentYear, currentMonth, d);
