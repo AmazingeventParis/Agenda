@@ -141,12 +141,13 @@
       .legend-item { font-size: 11px; }
       .legend-color { width: 12px; height: 12px; }
 
-      .calendar-scroll { display: block; overflow-x: visible; width: 100%; }
-      .calendar-table { width: 100%; table-layout: fixed; }
-      .calendar-table th { padding: 2px 0; font-size: 7px; word-break: break-all; }
-      .calendar-table td { height: 22px; min-width: 0; padding: 0; }
-      .calendar-table .employee-name { padding: 2px 4px; font-size: 8px; min-width: 60px; width: 60px; overflow: hidden; text-overflow: ellipsis; }
-      .absence-cell { min-height: 18px; font-size: 6px; border-radius: 2px; }
+      .calendar-scroll { display: block; overflow-x: scroll !important; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
+      .calendar-grid { overflow: visible; }
+      .calendar-table { width: max-content; }
+      .calendar-table th { padding: 4px 1px; font-size: 9px; }
+      .calendar-table td { height: 26px; min-width: 26px; padding: 1px; }
+      .calendar-table .employee-name { padding: 4px 6px; font-size: 9px; min-width: 80px; position: static; }
+      .absence-cell { min-height: 22px; font-size: 7px; border-radius: 2px; }
       .emp-name-badge { width: 5px; height: 5px; margin-right: 2px; }
 
       .employee-card { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
