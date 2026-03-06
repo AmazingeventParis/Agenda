@@ -377,8 +377,16 @@ function renderCalendar() {
     html += `<tr><td colspan="${daysInMonth + 1}" style="padding:40px;text-align:center;color:#9ca3af;">Ajoutez des salaries dans l'onglet "Salaries" pour commencer</td></tr>`;
   }
 
+  let lastCompany = '';
   employees.forEach(emp => {
-    const compColor = emp.company === 'smakk' ? '#0891b2' : '#7c3aed';
+    const comp = emp.company || 'shootnbox';
+    if (comp !== lastCompany) {
+      const compLabel = comp === 'smakk' ? 'SMAKK' : 'SHOOTNBOX';
+      const compColor = comp === 'smakk' ? '#0891b2' : '#7c3aed';
+      html += `<tr><td colspan="${daysInMonth + 1}" style="padding:8px 12px;background:${compColor};color:white;font-weight:700;font-size:13px;letter-spacing:1px;">${compLabel}</td></tr>`;
+      lastCompany = comp;
+    }
+    const compColor = comp === 'smakk' ? '#0891b2' : '#7c3aed';
     html += `<tr><td class="employee-name"><span class="emp-name-badge" style="background:${compColor}"></span>${emp.firstname} ${emp.lastname.charAt(0)}.</td>`;
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
