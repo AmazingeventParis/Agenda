@@ -126,43 +126,38 @@
       .stats-grid { grid-template-columns: 1fr; }
     }
     /* Login */
-    .login-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, #1e3a5f, #2d5986); z-index: 200; display: flex; align-items: center; justify-content: center; }
-    .login-box { background: white; border-radius: 16px; padding: 40px; width: 380px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center; }
-    .login-box h2 { color: #1e3a5f; margin-bottom: 8px; }
-    .login-box p { color: #6b7280; font-size: 14px; margin-bottom: 24px; }
-    .login-box input { width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
-    .login-box input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
     .login-error { color: #ef4444; font-size: 13px; margin-bottom: 8px; display: none; }
     .readonly-banner { background: #fef3c7; color: #92400e; padding: 8px 16px; text-align: center; font-size: 13px; font-weight: 500; }
   </style>
 </head>
 <body>
 
-<!-- Login Screen -->
-<div class="login-overlay" id="login-overlay">
-  <div class="login-box">
-    <h2>Agenda</h2>
-    <p>Gestion des Absences</p>
-    <input type="text" id="login-username" placeholder="Identifiant" onkeydown="if(event.key==='Enter')doLogin()">
-    <input type="password" id="login-password" placeholder="Mot de passe" onkeydown="if(event.key==='Enter')doLogin()">
-    <div class="login-error" id="login-error">Identifiant ou mot de passe incorrect</div>
-    <button class="btn btn-primary" style="width:100%;padding:12px;font-size:15px;" onclick="doLogin()">Se connecter</button>
+<!-- Login Modal (admin only) -->
+<div class="modal-overlay" id="modal-login">
+  <div class="modal" style="text-align:center;">
+    <h3>Connexion Admin</h3>
+    <input type="password" id="login-password" placeholder="Mot de passe admin" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="login-error" id="login-error">Mot de passe incorrect</div>
+    <div class="modal-actions" style="justify-content:center;">
+      <button class="btn btn-secondary" onclick="closeModal('modal-login')">Annuler</button>
+      <button class="btn btn-primary" onclick="doLogin()">Se connecter</button>
+    </div>
   </div>
 </div>
 
-<div id="app-container" style="display:none;">
-<div id="readonly-banner" class="readonly-banner" style="display:none;">Mode lecture seule - Vous ne pouvez pas modifier les donnees</div>
+<div id="app-container">
+<div id="readonly-banner" class="readonly-banner">Mode lecture seule — <a href="#" onclick="openAdminLogin();return false;" style="color:#92400e;font-weight:600;">Connexion admin</a></div>
 
 <div class="header">
   <h1>Agenda - Gestion des Absences</h1>
   <div class="header-actions">
-    <span id="user-info" style="color:rgba(255,255,255,0.7);font-size:13px;margin-right:8px;"></span>
     <button class="btn btn-outline admin-only" onclick="exportJSON()">Sauvegarder donnees</button>
     <button class="btn btn-outline admin-only" onclick="document.getElementById('import-json').click()">Importer donnees</button>
     <input type="file" id="import-json" accept=".json" style="display:none" onchange="importJSON(event)">
     <button class="btn btn-outline" onclick="exportData()">Exporter CSV</button>
     <button class="btn btn-outline" onclick="window.print()">Imprimer</button>
-    <button class="btn btn-outline" onclick="doLogout()">Deconnexion</button>
+    <button class="btn btn-outline admin-only" onclick="doLogout()">Deconnexion</button>
+    <button class="btn btn-outline" id="btn-admin-login" onclick="openAdminLogin()">Admin</button>
   </div>
 </div>
 
@@ -322,15 +317,20 @@ const HEADERS = {
 };
 
 // --- AUTH ---
-let currentRole = null; // 'admin' or 'rh'
+let currentRole = sessionStorage.getItem('agenda_role') || 'rh';
+
+function openAdminLogin() {
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('modal-login').classList.add('show');
+}
 
 async function doLogin() {
-  const username = document.getElementById('login-username').value.trim();
   const password = document.getElementById('login-password').value;
   const errorEl = document.getElementById('login-error');
   errorEl.style.display = 'none';
 
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/agenda_users?username=eq.${encodeURIComponent(username)}&password=eq.${encodeURIComponent(password)}&select=username,role`, { headers: HEADERS });
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/agenda_users?username=eq.admin&password=eq.${encodeURIComponent(password)}&select=role`, { headers: HEADERS });
   const users = await res.json();
 
   if (users.length === 0) {
@@ -338,32 +338,23 @@ async function doLogin() {
     return;
   }
 
-  currentRole = users[0].role;
-  sessionStorage.setItem('agenda_user', username);
-  sessionStorage.setItem('agenda_role', currentRole);
-  showApp();
-  await loadAll();
-  renderCalendar();
+  currentRole = 'admin';
+  sessionStorage.setItem('agenda_role', 'admin');
+  closeModal('modal-login');
+  applyRole();
 }
 
 function doLogout() {
-  sessionStorage.removeItem('agenda_user');
+  currentRole = 'rh';
   sessionStorage.removeItem('agenda_role');
-  currentRole = null;
-  document.getElementById('app-container').style.display = 'none';
-  document.getElementById('login-overlay').style.display = 'flex';
-  document.getElementById('login-password').value = '';
+  applyRole();
+  renderEmployees();
 }
 
-function showApp() {
-  document.getElementById('login-overlay').style.display = 'none';
-  document.getElementById('app-container').style.display = '';
-
+function applyRole() {
   const isRH = currentRole === 'rh';
   document.getElementById('readonly-banner').style.display = isRH ? '' : 'none';
-  document.getElementById('user-info').textContent = isRH ? 'Connecte : RH (lecture seule)' : 'Connecte : Admin';
-
-  // Hide admin-only elements
+  document.getElementById('btn-admin-login').style.display = isRH ? '' : 'none';
   document.querySelectorAll('.admin-only').forEach(el => el.style.display = isRH ? 'none' : '');
 }
 
@@ -835,14 +826,9 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 
 // --- INIT ---
 (async function() {
-  const savedUser = sessionStorage.getItem('agenda_user');
-  const savedRole = sessionStorage.getItem('agenda_role');
-  if (savedUser && savedRole) {
-    currentRole = savedRole;
-    showApp();
-    await loadAll();
-    renderCalendar();
-  }
+  await loadAll();
+  applyRole();
+  renderCalendar();
 })();
 </script>
 </body>
