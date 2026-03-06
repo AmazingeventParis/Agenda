@@ -45,14 +45,15 @@
     .calendar-grid { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
     .calendar-table { width: 100%; border-collapse: collapse; }
     .calendar-table th { padding: 10px 4px; background: #f8fafc; font-size: 12px; font-weight: 600; color: #64748b; text-align: center; border-bottom: 2px solid #e2e8f0; }
-    .calendar-table td { padding: 2px; text-align: center; border: 1px solid #f1f5f9; height: 36px; min-width: 36px; position: relative; }
+    .calendar-table td { padding: 2px; text-align: center; border: 1px solid #f1f5f9; height: 36px; min-width: 36px; position: relative; border-collapse: collapse; }
     .calendar-table td.weekend { background: #fee2e2; }
     .calendar-table th.weekend-header { background: #fecaca; color: #dc2626; }
-    .calendar-table td.today { outline: 2px solid #3b82f6; outline-offset: -2px; }
+    .calendar-table td.today { background: #eff6ff; }
     .calendar-table .employee-name { text-align: left; padding: 8px 12px; font-weight: 500; font-size: 13px; background: #fafbfc; border-right: 2px solid #e2e8f0; white-space: nowrap; min-width: 160px; position: sticky; left: 0; z-index: 2; }
 
-    .absence-cell { width: 100%; height: 100%; min-height: 30px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: white; transition: all 0.15s; }
-    .absence-cell:hover { opacity: 0.85; transform: scale(1.1); z-index: 1; }
+    .absence-cell { width: 100%; height: 100%; min-height: 30px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: white; transition: background 0.15s; }
+    .absence-cell:hover { opacity: 0.85; }
+    .absence-cell.empty { border: none; outline: none; }
     .absence-cell.empty:hover { background: #e8f0fe; }
 
     /* Absence colors */
