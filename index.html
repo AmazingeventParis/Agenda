@@ -266,7 +266,20 @@
 </div>
 
 <script>
-// --- DATA ---
+// --- SUPABASE CONFIG ---
+const SUPABASE_URL = 'https://supabase-api.swipego.app';
+const SUPABASE_KEY = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc3MTI3NDIyMCwiZXhwIjo0OTI2OTQ3ODIwLCJyb2xlIjoiYW5vbiJ9.4c5wruvy-jj3M8fSjhmgR4FvdF6za-mgawlkB_B0uB0';
+const HEADERS = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_KEY,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
+};
+
+// --- DATA CACHE ---
+let cachedEmployees = [];
+let cachedAbsences = {};
+
 const ABSENCE_TYPES = {
   maladie: { label: 'Maladie', short: 'M', class: 'abs-maladie' },
   cp: { label: 'Conge paye', short: 'CP', class: 'abs-cp' },
@@ -283,16 +296,24 @@ const MONTHS = ['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout'
 let currentMonth = new Date().getMonth();
 let currentYear = new Date().getFullYear();
 
-function loadData(key, fallback) {
-  try { return JSON.parse(localStorage.getItem(key)) || fallback; }
-  catch { return fallback; }
+// --- SUPABASE API ---
+async function fetchEmployees() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/agenda_employees?order=firstname`, { headers: HEADERS });
+  cachedEmployees = await res.json();
+  return cachedEmployees;
 }
-function saveData(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
 
-function getEmployees() { return loadData('agenda_employees', []); }
-function setEmployees(list) { saveData('agenda_employees', list); }
-function getAbsences() { return loadData('agenda_absences', {}); }
-function setAbsences(data) { saveData('agenda_absences', data); }
+async function fetchAbsences() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/agenda_absences`, { headers: HEADERS });
+  const rows = await res.json();
+  cachedAbsences = {};
+  rows.forEach(r => { cachedAbsences[`${r.employee_id}_${r.date}`] = { type: r.type, note: r.note || '' }; });
+  return cachedAbsences;
+}
+
+async function loadAll() {
+  await Promise.all([fetchEmployees(), fetchAbsences()]);
+}
 
 // --- TABS ---
 function switchTab(tab) {
@@ -310,14 +331,13 @@ function switchTab(tab) {
 
 // --- CALENDAR ---
 function renderCalendar() {
-  const employees = getEmployees();
-  const absences = getAbsences();
+  const employees = cachedEmployees;
+  const absences = cachedAbsences;
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const today = new Date();
 
   document.getElementById('month-title').textContent = `${MONTHS[currentMonth]} ${currentYear}`;
 
-  // Year selector
   const yearSelect = document.getElementById('year-select');
   yearSelect.innerHTML = '';
   for (let y = currentYear - 3; y <= currentYear + 3; y++) {
@@ -388,7 +408,7 @@ function goToToday() {
 
 // --- EMPLOYEES ---
 function renderEmployees() {
-  const employees = getEmployees();
+  const employees = cachedEmployees;
   const list = document.getElementById('employee-list');
   document.getElementById('no-employees').style.display = employees.length === 0 ? '' : 'none';
 
@@ -409,7 +429,7 @@ function renderEmployees() {
 function openEmployeeModal(id) {
   const modal = document.getElementById('modal-employee');
   if (id) {
-    const emp = getEmployees().find(e => e.id === id);
+    const emp = cachedEmployees.find(e => e.id === id);
     if (!emp) return;
     document.getElementById('modal-employee-title').textContent = 'Modifier le salarie';
     document.getElementById('emp-firstname').value = emp.firstname;
@@ -426,7 +446,7 @@ function openEmployeeModal(id) {
   modal.classList.add('show');
 }
 
-function saveEmployee() {
+async function saveEmployee() {
   const firstname = document.getElementById('emp-firstname').value.trim();
   const lastname = document.getElementById('emp-lastname').value.trim();
   const position = document.getElementById('emp-position').value.trim();
@@ -434,43 +454,45 @@ function saveEmployee() {
 
   if (!firstname || !lastname) { alert('Prenom et nom sont obligatoires.'); return; }
 
-  const employees = getEmployees();
   if (id) {
-    const idx = employees.findIndex(e => e.id === id);
-    if (idx >= 0) { employees[idx] = { ...employees[idx], firstname, lastname, position }; }
+    await fetch(`${SUPABASE_URL}/rest/v1/agenda_employees?id=eq.${id}`, {
+      method: 'PATCH', headers: HEADERS,
+      body: JSON.stringify({ firstname, lastname, position })
+    });
   } else {
-    employees.push({ id: 'emp_' + Date.now(), firstname, lastname, position });
+    const newId = 'emp_' + Date.now();
+    await fetch(`${SUPABASE_URL}/rest/v1/agenda_employees`, {
+      method: 'POST', headers: HEADERS,
+      body: JSON.stringify({ id: newId, firstname, lastname, position })
+    });
   }
-  setEmployees(employees);
+
+  await fetchEmployees();
   closeModal('modal-employee');
   renderEmployees();
   renderCalendar();
 }
 
-function deleteEmployee(id) {
-  const emp = getEmployees().find(e => e.id === id);
+async function deleteEmployee(id) {
+  const emp = cachedEmployees.find(e => e.id === id);
   if (!emp) return;
   if (!confirm(`Supprimer ${emp.firstname} ${emp.lastname} et toutes ses absences ?`)) return;
 
-  setEmployees(getEmployees().filter(e => e.id !== id));
-
-  // Remove absences
-  const absences = getAbsences();
-  Object.keys(absences).forEach(key => {
-    if (key.startsWith(id + '_')) delete absences[key];
+  await fetch(`${SUPABASE_URL}/rest/v1/agenda_employees?id=eq.${id}`, {
+    method: 'DELETE', headers: HEADERS
   });
-  setAbsences(absences);
+
+  await loadAll();
   renderEmployees();
 }
 
 // --- ABSENCES ---
 function openAbsenceModal(empId, dateStr) {
-  const emp = getEmployees().find(e => e.id === empId);
+  const emp = cachedEmployees.find(e => e.id === empId);
   if (!emp) return;
 
-  const absences = getAbsences();
   const key = `${empId}_${dateStr}`;
-  const existing = absences[key];
+  const existing = cachedAbsences[key];
 
   const dateObj = new Date(dateStr + 'T00:00:00');
   document.getElementById('absence-info').textContent =
@@ -486,47 +508,63 @@ function openAbsenceModal(empId, dateStr) {
   document.getElementById('modal-absence').classList.add('show');
 }
 
-function saveAbsence() {
+async function saveAbsence() {
   const empId = document.getElementById('absence-emp-id').value;
   const type = document.getElementById('absence-type').value;
   const note = document.getElementById('absence-note').value.trim();
   const startDate = document.getElementById('absence-date-start').value;
   const endDate = document.getElementById('absence-date-end').value;
 
-  const absences = getAbsences();
-
   const start = new Date(startDate + 'T00:00:00');
   const end = new Date(endDate + 'T00:00:00');
 
   if (end < start) { alert('La date de fin doit etre apres la date de debut.'); return; }
-
-  // Limit to 366 days to avoid accidental huge ranges
   const diffDays = (end - start) / (1000 * 60 * 60 * 24);
   if (diffDays > 366) { alert('La periode ne peut pas depasser 366 jours.'); return; }
 
+  const toInsert = [];
+  const toDel = [];
+
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const key = `${empId}_${ds}`;
     if (type) {
-      absences[key] = { type, note };
+      toInsert.push({ employee_id: empId, date: ds, type, note });
     } else {
-      delete absences[key];
+      toDel.push(ds);
     }
   }
 
-  setAbsences(absences);
+  if (toDel.length > 0) {
+    const dates = toDel.map(d => `"${d}"`).join(',');
+    await fetch(`${SUPABASE_URL}/rest/v1/agenda_absences?employee_id=eq.${empId}&date=in.(${dates})`, {
+      method: 'DELETE', headers: HEADERS
+    });
+  }
+
+  if (toInsert.length > 0) {
+    // Delete existing then insert (upsert)
+    const dates = toInsert.map(d => `"${d.date}"`).join(',');
+    await fetch(`${SUPABASE_URL}/rest/v1/agenda_absences?employee_id=eq.${empId}&date=in.(${dates})`, {
+      method: 'DELETE', headers: HEADERS
+    });
+    await fetch(`${SUPABASE_URL}/rest/v1/agenda_absences`, {
+      method: 'POST', headers: HEADERS,
+      body: JSON.stringify(toInsert)
+    });
+  }
+
+  await fetchAbsences();
   closeModal('modal-absence');
   renderCalendar();
 }
 
 // --- STATS ---
 function renderStats() {
-  const employees = getEmployees();
-  const absences = getAbsences();
+  const employees = cachedEmployees;
+  const absences = cachedAbsences;
   const yearSelect = document.getElementById('stats-year-select');
   const year = parseInt(yearSelect.value) || currentYear;
 
-  // Year selector
   if (yearSelect.options.length === 0) {
     for (let y = currentYear - 3; y <= currentYear + 3; y++) {
       yearSelect.innerHTML += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`;
@@ -534,7 +572,6 @@ function renderStats() {
   }
   document.getElementById('stats-year').textContent = `(${year})`;
 
-  // Calculate stats per employee
   let totalAbsences = 0;
   let totalMaladie = 0;
   let totalCP = 0;
@@ -546,9 +583,10 @@ function renderStats() {
   });
 
   Object.entries(absences).forEach(([key, val]) => {
-    const [empId, dateStr] = [key.substring(0, key.lastIndexOf('_')), key.substring(key.lastIndexOf('_') + 1)];
+    const lastUnderscore = key.lastIndexOf('_');
+    const empId = key.substring(0, lastUnderscore);
+    const dateStr = key.substring(lastUnderscore + 1);
     if (!dateStr.startsWith(String(year))) return;
-    // Skip weekends
     const d = new Date(dateStr + 'T00:00:00');
     if (d.getDay() === 0 || d.getDay() === 6) return;
 
@@ -561,8 +599,6 @@ function renderStats() {
     if (val.type === 'cp') totalCP++;
   });
 
-  // Cards
-  const workDaysInYear = countWorkDays(year);
   document.getElementById('stats-cards').innerHTML = `
     <div class="stat-card"><h4>Total jours d'absence</h4><div class="stat-value">${totalAbsences}</div><div class="stat-detail">${employees.length} salarie(s)</div></div>
     <div class="stat-card"><h4>Jours maladie</h4><div class="stat-value">${totalMaladie}</div><div class="stat-detail">${totalAbsences > 0 ? Math.round(totalMaladie / totalAbsences * 100) : 0}% des absences</div></div>
@@ -570,7 +606,6 @@ function renderStats() {
     <div class="stat-card"><h4>Moyenne par salarie</h4><div class="stat-value">${employees.length > 0 ? Math.round(totalAbsences / employees.length * 10) / 10 : 0}</div><div class="stat-detail">jours / salarie en ${year}</div></div>
   `;
 
-  // Table
   let tableHtml = '<thead><tr><th>Salarie</th>';
   Object.values(ABSENCE_TYPES).forEach(t => tableHtml += `<th>${t.label}</th>`);
   tableHtml += '<th>Total</th></tr></thead><tbody>';
@@ -593,30 +628,19 @@ function renderStats() {
   document.getElementById('stats-table').innerHTML = tableHtml;
 }
 
-function countWorkDays(year) {
-  let count = 0;
-  for (let m = 0; m < 12; m++) {
-    const days = new Date(year, m + 1, 0).getDate();
-    for (let d = 1; d <= days; d++) {
-      const day = new Date(year, m, d).getDay();
-      if (day !== 0 && day !== 6) count++;
-    }
-  }
-  return count;
-}
-
 // --- EXPORT CSV ---
 function exportData() {
-  const employees = getEmployees();
-  const absences = getAbsences();
+  const employees = cachedEmployees;
+  const absences = cachedAbsences;
   const year = currentYear;
 
   let csv = 'Salarie,Date,Type,Note\n';
   const rows = [];
 
   Object.entries(absences).forEach(([key, val]) => {
-    const empId = key.substring(0, key.lastIndexOf('_'));
-    const dateStr = key.substring(key.lastIndexOf('_') + 1);
+    const lastUnderscore = key.lastIndexOf('_');
+    const empId = key.substring(0, lastUnderscore);
+    const dateStr = key.substring(lastUnderscore + 1);
     const emp = employees.find(e => e.id === empId);
     if (!emp) return;
     if (!dateStr.startsWith(String(year))) return;
@@ -625,9 +649,7 @@ function exportData() {
   });
 
   rows.sort((a, b) => a.name.localeCompare(b.name) || a.date.localeCompare(b.date));
-  rows.forEach(r => {
-    csv += `"${r.name}","${r.date}","${r.type}","${r.note}"\n`;
-  });
+  rows.forEach(r => { csv += `"${r.name}","${r.date}","${r.type}","${r.note}"\n`; });
 
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
@@ -638,11 +660,7 @@ function exportData() {
 
 // --- JSON EXPORT/IMPORT ---
 function exportJSON() {
-  const data = {
-    employees: getEmployees(),
-    absences: getAbsences(),
-    exportDate: new Date().toISOString()
-  };
+  const data = { employees: cachedEmployees, absences: cachedAbsences, exportDate: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -650,33 +668,56 @@ function exportJSON() {
   link.click();
 }
 
-function importJSON(event) {
+async function importJSON(event) {
   const file = event.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (data.employees && data.absences) {
-        if (confirm(`Importer ${data.employees.length} salarie(s) et leurs absences ? Cela remplacera les donnees actuelles.`)) {
-          setEmployees(data.employees);
-          setAbsences(data.absences);
-          renderCalendar();
-          alert('Donnees importees avec succes !');
-        }
-      } else {
-        alert('Fichier invalide.');
+  const text = await file.text();
+  try {
+    const data = JSON.parse(text);
+    if (data.employees && data.absences) {
+      if (!confirm(`Importer ${data.employees.length} salarie(s) et leurs absences ? Cela remplacera les donnees actuelles.`)) return;
+
+      // Clear existing data
+      await fetch(`${SUPABASE_URL}/rest/v1/agenda_absences?id=gt.0`, { method: 'DELETE', headers: HEADERS });
+      await fetch(`${SUPABASE_URL}/rest/v1/agenda_employees?id=neq.impossible`, { method: 'DELETE', headers: HEADERS });
+
+      // Insert employees
+      const emps = data.employees.map(e => ({ id: e.id, firstname: e.firstname, lastname: e.lastname, position: e.position || '' }));
+      if (emps.length > 0) {
+        await fetch(`${SUPABASE_URL}/rest/v1/agenda_employees`, {
+          method: 'POST', headers: HEADERS, body: JSON.stringify(emps)
+        });
       }
-    } catch(err) { console.error(err); alert('Erreur de lecture du fichier: ' + err.message); }
-  };
-  reader.readAsText(file);
+
+      // Insert absences
+      const absRows = [];
+      Object.entries(data.absences).forEach(([key, val]) => {
+        const lastUnderscore = key.lastIndexOf('_');
+        const empId = key.substring(0, lastUnderscore);
+        const date = key.substring(lastUnderscore + 1);
+        absRows.push({ employee_id: empId, date, type: val.type, note: val.note || '' });
+      });
+
+      // Insert in batches of 500
+      for (let i = 0; i < absRows.length; i += 500) {
+        await fetch(`${SUPABASE_URL}/rest/v1/agenda_absences`, {
+          method: 'POST', headers: HEADERS, body: JSON.stringify(absRows.slice(i, i + 500))
+        });
+      }
+
+      await loadAll();
+      renderCalendar();
+      alert('Donnees importees avec succes !');
+    } else {
+      alert('Fichier invalide.');
+    }
+  } catch(err) { console.error(err); alert('Erreur: ' + err.message); }
   event.target.value = '';
 }
 
 // --- MODALS ---
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
-// Close modals on overlay click
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.classList.remove('show');
@@ -684,7 +725,10 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 });
 
 // --- INIT ---
-renderCalendar();
+(async function() {
+  await loadAll();
+  renderCalendar();
+})();
 </script>
 </body>
 </html>
