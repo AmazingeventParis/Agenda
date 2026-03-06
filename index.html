@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agenda - Gestion des Absences</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; color: #333; }
+
+    /* Header */
+    .header { background: linear-gradient(135deg, #1e3a5f, #2d5986); color: white; padding: 20px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    .header h1 { font-size: 24px; font-weight: 600; }
+    .header-actions { display: flex; gap: 10px; }
+
+    /* Buttons */
+    .btn { padding: 8px 18px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-success:hover { background: #059669; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-secondary { background: #6b7280; color: white; }
+    .btn-secondary:hover { background: #4b5563; }
+    .btn-outline { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.4); }
+    .btn-outline:hover { background: rgba(255,255,255,0.1); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .btn-icon { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; }
+
+    /* Layout */
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: white; padding: 4px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .tab { padding: 10px 24px; border: none; background: transparent; cursor: pointer; border-radius: 8px; font-size: 14px; font-weight: 500; color: #6b7280; transition: all 0.2s; }
+    .tab.active { background: #3b82f6; color: white; }
+    .tab:hover:not(.active) { background: #f3f4f6; color: #333; }
+
+    /* Calendar */
+    .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .month-nav { display: flex; align-items: center; gap: 15px; }
+    .month-nav h2 { font-size: 20px; min-width: 200px; text-align: center; }
+    .month-nav .btn { background: white; color: #333; border: 1px solid #ddd; }
+    .month-nav .btn:hover { background: #f3f4f6; }
+
+    .calendar-grid { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+    .calendar-table { width: 100%; border-collapse: collapse; }
+    .calendar-table th { padding: 10px 4px; background: #f8fafc; font-size: 12px; font-weight: 600; color: #64748b; text-align: center; border-bottom: 2px solid #e2e8f0; }
+    .calendar-table td { padding: 2px; text-align: center; border: 1px solid #f1f5f9; height: 36px; min-width: 36px; position: relative; }
+    .calendar-table td.weekend { background: #fee2e2; }
+    .calendar-table th.weekend-header { background: #fecaca; color: #dc2626; }
+    .calendar-table td.today { outline: 2px solid #3b82f6; outline-offset: -2px; }
+    .calendar-table .employee-name { text-align: left; padding: 8px 12px; font-weight: 500; font-size: 13px; background: #fafbfc; border-right: 2px solid #e2e8f0; white-space: nowrap; min-width: 160px; position: sticky; left: 0; z-index: 2; }
+
+    .absence-cell { width: 100%; height: 100%; min-height: 30px; cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: white; transition: all 0.15s; }
+    .absence-cell:hover { opacity: 0.85; transform: scale(1.1); z-index: 1; }
+    .absence-cell.empty:hover { background: #e8f0fe; }
+
+    /* Absence colors */
+    .abs-maladie { background: #ef4444; }
+    .abs-cp { background: #10b981; }
+    .abs-rtt { background: #8b5cf6; }
+    .abs-sans-solde { background: #f59e0b; }
+    .abs-teletravail { background: #06b6d4; }
+    .abs-formation { background: #ec4899; }
+    .abs-maternite { background: #f97316; }
+    .abs-autre { background: #6b7280; }
+
+    /* Legend */
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; background: white; padding: 12px 16px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+    .legend-color { width: 16px; height: 16px; border-radius: 4px; }
+
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: white; border-radius: 12px; padding: 24px; width: 420px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+    .modal h3 { font-size: 18px; margin-bottom: 16px; color: #1e3a5f; }
+    .modal label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; color: #4b5563; }
+    .modal input, .modal select { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; margin-bottom: 12px; }
+    .modal input:focus, .modal select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+    /* Employee list */
+    .employee-card { background: white; border-radius: 10px; padding: 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+    .employee-info h4 { font-size: 15px; margin-bottom: 2px; }
+    .employee-info span { font-size: 13px; color: #6b7280; }
+    .employee-actions { display: flex; gap: 6px; }
+
+    /* Stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .stat-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stat-card h4 { font-size: 14px; color: #6b7280; margin-bottom: 8px; }
+    .stat-card .stat-value { font-size: 28px; font-weight: 700; color: #1e3a5f; }
+    .stat-card .stat-detail { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+
+    .stats-table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .stats-table th { background: #f8fafc; padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: #64748b; }
+    .stats-table td { padding: 10px 12px; border-top: 1px solid #f1f5f9; font-size: 13px; }
+    .stats-table tr:hover td { background: #f8fafc; }
+
+    .calendar-scroll { overflow-x: auto; }
+
+    /* Tooltip */
+    .tooltip { position: absolute; background: #1e293b; color: white; padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; z-index: 50; pointer-events: none; transform: translateX(-50%); bottom: calc(100% + 6px); left: 50%; }
+    .tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #1e293b; }
+
+    /* Year selector */
+    .year-selector { display: flex; align-items: center; gap: 8px; }
+    .year-selector select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+
+    /* Print */
+    @media print {
+      .header, .tabs, .legend, .calendar-header, .btn, .no-print { display: none !important; }
+      .calendar-grid { box-shadow: none; }
+      body { background: white; }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header { flex-direction: column; gap: 10px; }
+      .tabs { flex-wrap: wrap; }
+      .stats-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Agenda - Gestion des Absences</h1>
+  <div class="header-actions">
+    <button class="btn btn-outline" onclick="exportJSON()">Sauvegarder donnees</button>
+    <button class="btn btn-outline" onclick="document.getElementById('import-json').click()">Importer donnees</button>
+    <input type="file" id="import-json" accept=".json" style="display:none" onchange="importJSON(event)">
+    <button class="btn btn-outline" onclick="exportData()">Exporter CSV</button>
+    <button class="btn btn-outline" onclick="window.print()">Imprimer</button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('calendar')">Calendrier</button>
+    <button class="tab" onclick="switchTab('employees')">Salaries</button>
+    <button class="tab" onclick="switchTab('stats')">Statistiques</button>
+  </div>
+
+  <!-- TAB: Calendar -->
+  <div id="tab-calendar">
+    <div class="calendar-header">
+      <div class="month-nav">
+        <button class="btn" onclick="changeMonth(-1)">&larr; Precedent</button>
+        <h2 id="month-title"></h2>
+        <button class="btn" onclick="changeMonth(1)">Suivant &rarr;</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div class="year-selector">
+          <select id="year-select" onchange="changeYear(this.value)"></select>
+        </div>
+        <button class="btn btn-primary" onclick="goToToday()">Aujourd'hui</button>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-color abs-maladie"></div>Maladie</div>
+      <div class="legend-item"><div class="legend-color abs-cp"></div>Conge paye</div>
+      <div class="legend-item"><div class="legend-color abs-rtt"></div>RTT</div>
+      <div class="legend-item"><div class="legend-color abs-sans-solde"></div>Sans solde</div>
+      <div class="legend-item"><div class="legend-color abs-teletravail"></div>Teletravail</div>
+      <div class="legend-item"><div class="legend-color abs-formation"></div>Formation</div>
+      <div class="legend-item"><div class="legend-color abs-maternite"></div>Maternite/Paternite</div>
+      <div class="legend-item"><div class="legend-color abs-autre"></div>Autre</div>
+    </div>
+
+    <div class="calendar-scroll">
+      <div class="calendar-grid">
+        <table class="calendar-table" id="calendar-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Employees -->
+  <div id="tab-employees" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2>Liste des salaries</h2>
+      <button class="btn btn-primary" onclick="openEmployeeModal()">+ Ajouter un salarie</button>
+    </div>
+    <div id="employee-list"></div>
+    <div id="no-employees" style="text-align:center;padding:40px;color:#9ca3af;display:none;">
+      Aucun salarie. Cliquez sur "Ajouter un salarie" pour commencer.
+    </div>
+  </div>
+
+  <!-- TAB: Stats -->
+  <div id="tab-stats" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2>Statistiques <span id="stats-year" style="color:#6b7280"></span></h2>
+      <div class="year-selector">
+        <label style="font-size:13px;margin-right:6px;">Annee :</label>
+        <select id="stats-year-select" onchange="renderStats()"></select>
+      </div>
+    </div>
+    <div class="stats-grid" id="stats-cards"></div>
+    <h3 style="margin:20px 0 12px;">Detail par salarie</h3>
+    <table class="stats-table" id="stats-table"></table>
+  </div>
+</div>
+
+<!-- Modal: Employee -->
+<div class="modal-overlay" id="modal-employee">
+  <div class="modal">
+    <h3 id="modal-employee-title">Ajouter un salarie</h3>
+    <label>Prenom</label>
+    <input type="text" id="emp-firstname" placeholder="Prenom">
+    <label>Nom</label>
+    <input type="text" id="emp-lastname" placeholder="Nom">
+    <label>Poste</label>
+    <input type="text" id="emp-position" placeholder="Poste (optionnel)">
+    <input type="hidden" id="emp-id">
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-employee')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveEmployee()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Absence -->
+<div class="modal-overlay" id="modal-absence">
+  <div class="modal">
+    <h3>Gerer l'absence</h3>
+    <p id="absence-info" style="font-size:13px;color:#6b7280;margin-bottom:12px;"></p>
+    <label>Type d'absence</label>
+    <select id="absence-type">
+      <option value="">-- Aucune absence --</option>
+      <option value="maladie">Maladie</option>
+      <option value="cp">Conge paye</option>
+      <option value="rtt">RTT</option>
+      <option value="sans-solde">Conge sans solde</option>
+      <option value="teletravail">Teletravail</option>
+      <option value="formation">Formation</option>
+      <option value="maternite">Maternite / Paternite</option>
+      <option value="autre">Autre</option>
+    </select>
+    <label>Note (optionnel)</label>
+    <input type="text" id="absence-note" placeholder="Commentaire...">
+
+    <div style="margin-top:8px;padding:12px;background:#f8fafc;border-radius:8px;">
+      <label style="margin-bottom:6px;">Appliquer sur une periode</label>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1">
+          <label style="font-size:11px;">Du</label>
+          <input type="date" id="absence-date-start">
+        </div>
+        <div style="flex:1">
+          <label style="font-size:11px;">Au</label>
+          <input type="date" id="absence-date-end">
+        </div>
+      </div>
+    </div>
+
+    <input type="hidden" id="absence-emp-id">
+    <input type="hidden" id="absence-date">
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-absence')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveAbsence()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- DATA ---
+const ABSENCE_TYPES = {
+  maladie: { label: 'Maladie', short: 'M', class: 'abs-maladie' },
+  cp: { label: 'Conge paye', short: 'CP', class: 'abs-cp' },
+  rtt: { label: 'RTT', short: 'R', class: 'abs-rtt' },
+  'sans-solde': { label: 'Sans solde', short: 'SS', class: 'abs-sans-solde' },
+  teletravail: { label: 'Teletravail', short: 'TT', class: 'abs-teletravail' },
+  formation: { label: 'Formation', short: 'F', class: 'abs-formation' },
+  maternite: { label: 'Maternite/Pat.', short: 'MP', class: 'abs-maternite' },
+  autre: { label: 'Autre', short: 'A', class: 'abs-autre' }
+};
+
+const MONTHS = ['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre'];
+
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
+
+function loadData(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) || fallback; }
+  catch { return fallback; }
+}
+function saveData(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
+
+function getEmployees() { return loadData('agenda_employees', []); }
+function setEmployees(list) { saveData('agenda_employees', list); }
+function getAbsences() { return loadData('agenda_absences', {}); }
+function setAbsences(data) { saveData('agenda_absences', data); }
+
+// --- TABS ---
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    const tabs = ['calendar','employees','stats'];
+    t.classList.toggle('active', tabs[i] === tab);
+  });
+  document.getElementById('tab-calendar').style.display = tab === 'calendar' ? '' : 'none';
+  document.getElementById('tab-employees').style.display = tab === 'employees' ? '' : 'none';
+  document.getElementById('tab-stats').style.display = tab === 'stats' ? '' : 'none';
+  if (tab === 'employees') renderEmployees();
+  if (tab === 'stats') renderStats();
+  if (tab === 'calendar') renderCalendar();
+}
+
+// --- CALENDAR ---
+function renderCalendar() {
+  const employees = getEmployees();
+  const absences = getAbsences();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const today = new Date();
+
+  document.getElementById('month-title').textContent = `${MONTHS[currentMonth]} ${currentYear}`;
+
+  // Year selector
+  const yearSelect = document.getElementById('year-select');
+  yearSelect.innerHTML = '';
+  for (let y = currentYear - 3; y <= currentYear + 3; y++) {
+    yearSelect.innerHTML += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`;
+  }
+
+  let html = '<thead><tr><th style="min-width:160px">Salarie</th>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(currentYear, currentMonth, d);
+    const dayName = date.toLocaleDateString('fr-FR', { weekday: 'short' }).substring(0, 2);
+    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+    html += `<th class="${isWeekend ? 'weekend-header' : ''}">${dayName}<br>${d}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  if (employees.length === 0) {
+    html += `<tr><td colspan="${daysInMonth + 1}" style="padding:40px;text-align:center;color:#9ca3af;">Ajoutez des salaries dans l'onglet "Salaries" pour commencer</td></tr>`;
+  }
+
+  employees.forEach(emp => {
+    html += `<tr><td class="employee-name">${emp.firstname} ${emp.lastname.charAt(0)}.</td>`;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const date = new Date(currentYear, currentMonth, d);
+      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+      const isToday = today.getFullYear() === currentYear && today.getMonth() === currentMonth && today.getDate() === d;
+      const key = `${emp.id}_${dateStr}`;
+      const absence = absences[key];
+
+      let cellClass = isWeekend ? 'weekend' : '';
+      if (isToday) cellClass += ' today';
+
+      if (absence) {
+        const at = ABSENCE_TYPES[absence.type];
+        html += `<td class="${cellClass}">
+          <div class="absence-cell ${at.class}" onclick="openAbsenceModal('${emp.id}','${dateStr}')" title="${at.label}${absence.note ? ' - ' + absence.note : ''}">${at.short}</div>
+        </td>`;
+      } else {
+        html += `<td class="${cellClass}">
+          <div class="absence-cell empty" onclick="openAbsenceModal('${emp.id}','${dateStr}')"></div>
+        </td>`;
+      }
+    }
+    html += '</tr>';
+  });
+
+  html += '</tbody>';
+  document.getElementById('calendar-table').innerHTML = html;
+}
+
+function changeMonth(delta) {
+  currentMonth += delta;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderCalendar();
+}
+
+function changeYear(y) {
+  currentYear = parseInt(y);
+  renderCalendar();
+}
+
+function goToToday() {
+  currentMonth = new Date().getMonth();
+  currentYear = new Date().getFullYear();
+  renderCalendar();
+}
+
+// --- EMPLOYEES ---
+function renderEmployees() {
+  const employees = getEmployees();
+  const list = document.getElementById('employee-list');
+  document.getElementById('no-employees').style.display = employees.length === 0 ? '' : 'none';
+
+  list.innerHTML = employees.map(emp => `
+    <div class="employee-card">
+      <div class="employee-info">
+        <h4>${emp.firstname} ${emp.lastname}</h4>
+        <span>${emp.position || 'Poste non defini'}</span>
+      </div>
+      <div class="employee-actions">
+        <button class="btn btn-sm btn-primary" onclick="openEmployeeModal('${emp.id}')">Modifier</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteEmployee('${emp.id}')">Supprimer</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openEmployeeModal(id) {
+  const modal = document.getElementById('modal-employee');
+  if (id) {
+    const emp = getEmployees().find(e => e.id === id);
+    if (!emp) return;
+    document.getElementById('modal-employee-title').textContent = 'Modifier le salarie';
+    document.getElementById('emp-firstname').value = emp.firstname;
+    document.getElementById('emp-lastname').value = emp.lastname;
+    document.getElementById('emp-position').value = emp.position || '';
+    document.getElementById('emp-id').value = id;
+  } else {
+    document.getElementById('modal-employee-title').textContent = 'Ajouter un salarie';
+    document.getElementById('emp-firstname').value = '';
+    document.getElementById('emp-lastname').value = '';
+    document.getElementById('emp-position').value = '';
+    document.getElementById('emp-id').value = '';
+  }
+  modal.classList.add('show');
+}
+
+function saveEmployee() {
+  const firstname = document.getElementById('emp-firstname').value.trim();
+  const lastname = document.getElementById('emp-lastname').value.trim();
+  const position = document.getElementById('emp-position').value.trim();
+  const id = document.getElementById('emp-id').value;
+
+  if (!firstname || !lastname) { alert('Prenom et nom sont obligatoires.'); return; }
+
+  const employees = getEmployees();
+  if (id) {
+    const idx = employees.findIndex(e => e.id === id);
+    if (idx >= 0) { employees[idx] = { ...employees[idx], firstname, lastname, position }; }
+  } else {
+    employees.push({ id: 'emp_' + Date.now(), firstname, lastname, position });
+  }
+  setEmployees(employees);
+  closeModal('modal-employee');
+  renderEmployees();
+  renderCalendar();
+}
+
+function deleteEmployee(id) {
+  const emp = getEmployees().find(e => e.id === id);
+  if (!emp) return;
+  if (!confirm(`Supprimer ${emp.firstname} ${emp.lastname} et toutes ses absences ?`)) return;
+
+  setEmployees(getEmployees().filter(e => e.id !== id));
+
+  // Remove absences
+  const absences = getAbsences();
+  Object.keys(absences).forEach(key => {
+    if (key.startsWith(id + '_')) delete absences[key];
+  });
+  setAbsences(absences);
+  renderEmployees();
+}
+
+// --- ABSENCES ---
+function openAbsenceModal(empId, dateStr) {
+  const emp = getEmployees().find(e => e.id === empId);
+  if (!emp) return;
+
+  const absences = getAbsences();
+  const key = `${empId}_${dateStr}`;
+  const existing = absences[key];
+
+  const dateObj = new Date(dateStr + 'T00:00:00');
+  document.getElementById('absence-info').textContent =
+    `${emp.firstname} ${emp.lastname} - ${dateObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`;
+
+  document.getElementById('absence-type').value = existing ? existing.type : '';
+  document.getElementById('absence-note').value = existing ? existing.note || '' : '';
+  document.getElementById('absence-emp-id').value = empId;
+  document.getElementById('absence-date').value = dateStr;
+  document.getElementById('absence-date-start').value = dateStr;
+  document.getElementById('absence-date-end').value = dateStr;
+
+  document.getElementById('modal-absence').classList.add('show');
+}
+
+function saveAbsence() {
+  const empId = document.getElementById('absence-emp-id').value;
+  const type = document.getElementById('absence-type').value;
+  const note = document.getElementById('absence-note').value.trim();
+  const startDate = document.getElementById('absence-date-start').value;
+  const endDate = document.getElementById('absence-date-end').value;
+
+  const absences = getAbsences();
+
+  const start = new Date(startDate + 'T00:00:00');
+  const end = new Date(endDate + 'T00:00:00');
+
+  if (end < start) { alert('La date de fin doit etre apres la date de debut.'); return; }
+
+  // Limit to 366 days to avoid accidental huge ranges
+  const diffDays = (end - start) / (1000 * 60 * 60 * 24);
+  if (diffDays > 366) { alert('La periode ne peut pas depasser 366 jours.'); return; }
+
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const key = `${empId}_${ds}`;
+    if (type) {
+      absences[key] = { type, note };
+    } else {
+      delete absences[key];
+    }
+  }
+
+  setAbsences(absences);
+  closeModal('modal-absence');
+  renderCalendar();
+}
+
+// --- STATS ---
+function renderStats() {
+  const employees = getEmployees();
+  const absences = getAbsences();
+  const yearSelect = document.getElementById('stats-year-select');
+  const year = parseInt(yearSelect.value) || currentYear;
+
+  // Year selector
+  if (yearSelect.options.length === 0) {
+    for (let y = currentYear - 3; y <= currentYear + 3; y++) {
+      yearSelect.innerHTML += `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`;
+    }
+  }
+  document.getElementById('stats-year').textContent = `(${year})`;
+
+  // Calculate stats per employee
+  let totalAbsences = 0;
+  let totalMaladie = 0;
+  let totalCP = 0;
+  const empStats = {};
+
+  employees.forEach(emp => {
+    empStats[emp.id] = { name: `${emp.firstname} ${emp.lastname}`, total: 0 };
+    Object.keys(ABSENCE_TYPES).forEach(t => empStats[emp.id][t] = 0);
+  });
+
+  Object.entries(absences).forEach(([key, val]) => {
+    const [empId, dateStr] = [key.substring(0, key.lastIndexOf('_')), key.substring(key.lastIndexOf('_') + 1)];
+    if (!dateStr.startsWith(String(year))) return;
+    // Skip weekends
+    const d = new Date(dateStr + 'T00:00:00');
+    if (d.getDay() === 0 || d.getDay() === 6) return;
+
+    if (empStats[empId]) {
+      empStats[empId].total++;
+      empStats[empId][val.type] = (empStats[empId][val.type] || 0) + 1;
+    }
+    totalAbsences++;
+    if (val.type === 'maladie') totalMaladie++;
+    if (val.type === 'cp') totalCP++;
+  });
+
+  // Cards
+  const workDaysInYear = countWorkDays(year);
+  document.getElementById('stats-cards').innerHTML = `
+    <div class="stat-card"><h4>Total jours d'absence</h4><div class="stat-value">${totalAbsences}</div><div class="stat-detail">${employees.length} salarie(s)</div></div>
+    <div class="stat-card"><h4>Jours maladie</h4><div class="stat-value">${totalMaladie}</div><div class="stat-detail">${totalAbsences > 0 ? Math.round(totalMaladie / totalAbsences * 100) : 0}% des absences</div></div>
+    <div class="stat-card"><h4>Jours conge paye</h4><div class="stat-value">${totalCP}</div><div class="stat-detail">${totalAbsences > 0 ? Math.round(totalCP / totalAbsences * 100) : 0}% des absences</div></div>
+    <div class="stat-card"><h4>Moyenne par salarie</h4><div class="stat-value">${employees.length > 0 ? Math.round(totalAbsences / employees.length * 10) / 10 : 0}</div><div class="stat-detail">jours / salarie en ${year}</div></div>
+  `;
+
+  // Table
+  let tableHtml = '<thead><tr><th>Salarie</th>';
+  Object.values(ABSENCE_TYPES).forEach(t => tableHtml += `<th>${t.label}</th>`);
+  tableHtml += '<th>Total</th></tr></thead><tbody>';
+
+  employees.forEach(emp => {
+    const s = empStats[emp.id];
+    tableHtml += `<tr><td><strong>${s.name}</strong></td>`;
+    Object.keys(ABSENCE_TYPES).forEach(t => {
+      const v = s[t] || 0;
+      tableHtml += `<td>${v > 0 ? v : '-'}</td>`;
+    });
+    tableHtml += `<td><strong>${s.total}</strong></td></tr>`;
+  });
+
+  if (employees.length === 0) {
+    tableHtml += `<tr><td colspan="${Object.keys(ABSENCE_TYPES).length + 2}" style="text-align:center;padding:20px;color:#9ca3af;">Aucun salarie</td></tr>`;
+  }
+
+  tableHtml += '</tbody>';
+  document.getElementById('stats-table').innerHTML = tableHtml;
+}
+
+function countWorkDays(year) {
+  let count = 0;
+  for (let m = 0; m < 12; m++) {
+    const days = new Date(year, m + 1, 0).getDate();
+    for (let d = 1; d <= days; d++) {
+      const day = new Date(year, m, d).getDay();
+      if (day !== 0 && day !== 6) count++;
+    }
+  }
+  return count;
+}
+
+// --- EXPORT CSV ---
+function exportData() {
+  const employees = getEmployees();
+  const absences = getAbsences();
+  const year = currentYear;
+
+  let csv = 'Salarie,Date,Type,Note\n';
+  const rows = [];
+
+  Object.entries(absences).forEach(([key, val]) => {
+    const empId = key.substring(0, key.lastIndexOf('_'));
+    const dateStr = key.substring(key.lastIndexOf('_') + 1);
+    const emp = employees.find(e => e.id === empId);
+    if (!emp) return;
+    if (!dateStr.startsWith(String(year))) return;
+    const at = ABSENCE_TYPES[val.type];
+    rows.push({ name: `${emp.firstname} ${emp.lastname}`, date: dateStr, type: at ? at.label : val.type, note: val.note || '' });
+  });
+
+  rows.sort((a, b) => a.name.localeCompare(b.name) || a.date.localeCompare(b.date));
+  rows.forEach(r => {
+    csv += `"${r.name}","${r.date}","${r.type}","${r.note}"\n`;
+  });
+
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `absences_${year}.csv`;
+  link.click();
+}
+
+// --- JSON EXPORT/IMPORT ---
+function exportJSON() {
+  const data = {
+    employees: getEmployees(),
+    absences: getAbsences(),
+    exportDate: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `agenda_backup_${new Date().toISOString().slice(0,10)}.json`;
+  link.click();
+}
+
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (data.employees && data.absences) {
+        if (confirm(`Importer ${data.employees.length} salarie(s) et leurs absences ? Cela remplacera les donnees actuelles.`)) {
+          setEmployees(data.employees);
+          setAbsences(data.absences);
+          renderCalendar();
+          alert('Donnees importees avec succes !');
+        }
+      } else {
+        alert('Fichier invalide.');
+      }
+    } catch { alert('Erreur de lecture du fichier.'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// --- MODALS ---
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('show');
+  });
+});
+
+// --- INIT ---
+renderCalendar();
+</script>
+</body>
+</html>
